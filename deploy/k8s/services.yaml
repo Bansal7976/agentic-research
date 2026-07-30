@@ -1,4 +1,4 @@
-# All three backend microservices. Replace REGION/PROJECT_ID in image paths
+﻿# All three backend microservices. Replace REGION/PROJECT_ID in image paths
 # after pushing images to Artifact Registry (see docs/11).
 apiVersion: apps/v1
 kind: Deployment
@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: mcp-tools
-          image: REGION-docker.pkg.dev/PROJECT_ID/agentic/mcp-tools:latest
+          image: asia-south1-docker.pkg.dev/agentic-research-81536/agentic/mcp-tools:latest
           ports: [{ containerPort: 8100 }]
           envFrom: [{ secretRef: { name: app-secrets } }]
           resources:
@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
         - name: rag-service
-          image: REGION-docker.pkg.dev/PROJECT_ID/agentic/rag-service:latest
+          image: asia-south1-docker.pkg.dev/agentic-research-81536/agentic/rag-service:latest
           ports: [{ containerPort: 8001 }]
           envFrom: [{ secretRef: { name: app-secrets } }]
           resources:
@@ -64,14 +64,14 @@ metadata:
   name: agent-service
   namespace: agentic-research
 spec:
-  replicas: 2                      # two replicas -> Service load-balances between pods
+  replicas: 1                      # small demo nodes; HPA scales this up under load
   selector: { matchLabels: { app: agent-service } }
   template:
     metadata: { labels: { app: agent-service } }
     spec:
       containers:
         - name: agent-service
-          image: REGION-docker.pkg.dev/PROJECT_ID/agentic/agent-service:latest
+          image: asia-south1-docker.pkg.dev/agentic-research-81536/agentic/agent-service:latest
           ports: [{ containerPort: 8000 }]
           envFrom: [{ secretRef: { name: app-secrets } }]
           env:
@@ -81,7 +81,9 @@ spec:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5
           resources:
-            requests: { cpu: 250m, memory: 512Mi }
+            # request = guaranteed booking (scheduler isi se jagah dhoondta hai);
+            # limit = max burst. e2-medium allocatable ~940m me fit hone ke liye kam request
+            requests: { cpu: 100m, memory: 512Mi }
             limits: { cpu: "1", memory: 1Gi }
 ---
 apiVersion: v1

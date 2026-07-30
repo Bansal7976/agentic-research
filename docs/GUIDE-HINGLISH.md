@@ -199,6 +199,58 @@ gcloud container clusters delete agentic-cluster --region=asia-south1
 ```
 Saari YAML files ready hain: [deploy/k8s/](../deploy/k8s/) — har file me comments.
 
+### 🔴 LIVE JOURNEY — humne GKE pe EXACTLY ye kiya (har step ka KYU)
+
+**Step 1 — APIs enable + Artifact Registry banaya.** KYU: GCP me har service ka
+switch by-default OFF hota hai (safety+billing); Artifact Registry = hamari
+Docker images ka private godown — K8s wahi se images kheenchta hai.
+
+**Step 2 — Cloud Build se 3 images banayi.** KYU: laptop se GB-bhar images
+upload karna slow hai; `gcloud builds submit` sirf CODE upload karta hai
+(chhota), image GOOGLE ke server pe banti hai aur seedha registry me jaati hai.
+Teeno builds PARALLEL chalayi — time ⅓.
+
+**Step 3 — Node service account ko 3 naye roles.** KYU: cluster ke nodes bhi
+VMs hain jo hamare `agentic-app` robot se chalte hain — unhe images READ karne
+ki permission (`artifactregistry.reader`) chahiye warna `ImagePullBackOff`
+error. Logging/monitoring roles bhi, warna cluster andha.
+
+**Step 4 — Cluster banaya:** `gcloud container clusters create agentic-cluster
+--num-nodes=2 --machine-type=e2-medium --service-account=agentic-app@...`
+KYU service-account: pods me wahi keyless auth jo VM pe thi — continuity!
+
+**Step 5 — `kubectl apply -f` sab manifests.** Declarative jadoo: humne sirf
+"KYA chahiye" bola, Kubernetes ne pods schedule kiye, internal DNS banaya, aur
+`type: LoadBalancer` dekhte hi GCP se ek **asli public IP** (34.47.212.125)
+provision karwa liya.
+
+**Step 6 — REAL PROBLEM aayi (aur yehi best lesson hai):** agent-service pods
+`Pending` atke. `kubectl describe` bola: **"Insufficient cpu"**. Nikla ye:
+e2-medium me 2 vCPU hote hain par **allocatable sirf 940m** (GKE khud OS +
+kubelet ke liye reserve karta hai), aur system pods (DNS, metrics...) bhi
+usi me rehte hain. Hamari `requests: cpu: 250m` × 2 replicas fit nahi hui.
+**Fix**: request 250m→100m (request = guaranteed booking, limit = burst max —
+scheduler sirf REQUEST dekhta hai) aur replicas 2→1 (HPA load pe badha dega).
+**Yaad rakhna**: requests jitni honest, cluster utna efficient.
+
+**Step 7 — LB pe research test:** `http://34.47.212.125/api/agent/research` →
+10 sources → report GCS me. Internet → GCP LB → nginx pod → agent pod → MCP pod
+→ Vertex AI — sab Kubernetes ke andar.
+
+**Step 8 — SELF-HEALING DEMO (Kubernetes ka asli jadoo):**
+```
+kubectl delete pod -l app=agent-service     # pod MAAR diya (crash simulation)
+8 second baad:  NAYA pod aa gaya (naya naam, khud bana)
+38 second baad: 1/1 Running — traffic wapas chalu
+```
+Kisi insaan ne kuch NAHI kiya. Deployment ka register bola "1 replica chahiye",
+reality me 0 tha, Kubernetes ne गैप bhar diya. VM pe yehi crash = site DOWN
+jab tak aap khud na jaao.
+
+**Step 9 — Cluster DELETE.** KYU: kaam khatam, screenshot le liye, ab har
+ghanta paisa kyu jale. Images Artifact Registry me hain — cluster dobara banao
+to 5 minute me sab wapas. **Cattle, not pets** — infra ko disposable rakho.
+
 ---
 
 ## 4. CI/CD — "Code push kiya, baaki sab automatic"
@@ -342,12 +394,137 @@ real companies use karti hain: dev me free tier, prod me Vertex.
 
 ---
 
-## 10. Ab aage kya? (current status)
+## 10. Message Queues & Pub/Sub — "order abhi lo, kaam baad me karo"
+
+### Problem jo ye solve karta hai
+Hamara `/research` endpoint 2-5 MINUTE chalta hai aur user ko intezaar karna
+padta hai (browser ghoomta rehta hai). Agar 100 users ek saath aaye? Sab atak
+jayenge. Real systems me lambe kaam ka rule: **"request turant accept karo,
+kaam PEECHE karo"** — isi ke liye message queue hoti hai.
+
+### Queue ka concept — "tiffin wale ka order register"
+Dukaan pe 50 order ek saath aaye to dukandar bhagta nahi — sab orders ek
+**register (queue)** me likhta hai, aur 3 worker ek-ek karke banate hain:
+
+```
+ABHI (synchronous):                     QUEUE KE SAATH (asynchronous):
+User → /research → 3 min wait → report  User → /research → turant "ticket #42" milta hai
+                                        Ticket queue me → free WORKER uthata hai
+                                        → kaam hota hai → report GCS me
+                                        User: GET /status/42 → "ready! ye raha link"
+```
+
+### Words jo interview me aayenge
+| Word | Matlab |
+|---|---|
+| **Producer/Publisher** | Jo message queue me DAALTA hai (hamara API) |
+| **Consumer/Subscriber** | Jo message UTHATA hai (worker service) |
+| **Topic** | Queue ka naam/channel (jaise `research-jobs`) |
+| **Ack (acknowledge)** | Worker bola "kaam ho gaya" → message queue se delete |
+| **Retry / Dead-letter queue** | Worker fail hua? Message wapas queue me; baar-baar fail = alag "DLQ" me (postmortem ke liye) |
+| **Decoupling** | Producer/consumer ek doosre ko jaante hi nahi — koi bhi giro, doosra chalta rahe |
+
+### Pub/Sub = GCP ki managed queue (AWS me SQS/SNS, self-hosted me RabbitMQ/Kafka)
+Server nahi chalana padta, unlimited scale, per-message paisa. Hamare project me
+aise lagta (agar lagate):
+```
+agent-service /research → Pub/Sub topic "research-jobs" me message publish
+→ turant job_id return                          (user ka wait khatam)
+naya "worker-service" (4th microservice) topic subscribe kare
+→ message aaya → LangGraph chalao → report GCS → status BigQuery me update
+```
+Command sirf itni: `gcloud pubsub topics create research-jobs`.
+**Kafka** bhi yehi hai par self-hosted + streaming-focused (events ka replay ho
+sakta hai) — bade data pipelines me milta hai.
+
+---
+
+## 11. Jo aur concepts ab tak cover nahi hue — sab yahan
+
+### Cloud Run — "VM/K8s ka aalsi cousin" (serverless)
+Container do → Google chala dega. Na VM, na cluster, na nodes. Traffic zero =
+**scale to zero = bill zero**. Request aayi to milliseconds me jag jaata hai.
+`gcloud run deploy agent-service --image <hamari-image> --region asia-south1`
+— bas. *To K8s kyu seekha?* Cloud Run simple cheezon ke liye perfect hai;
+K8s tab jab multi-service control, custom networking, long-running jobs
+chahiye. Interview me dono ka trade-off bolna = strong signal.
+
+### Secret Manager — passwords ki asli tijori
+Humne secrets `.env`/K8s Secret me rakhe (theek hai learning ke liye). Production
+me **Secret Manager**: central tijori, **versioning** (purani key wapas la sakte
+ho), **audit log** (kisne kab padha), IAM se access. Code me:
+`secretmanager.SecretManagerServiceClient().access_secret_version(...)`.
+K8s Secret sirf base64 hota hai — encryption nahi, ye yaad rakhna.
+
+### VPC & Networking — cloud ka apna mohalla
+- **VPC** = aapka private network (hamari VM `default` VPC me thi, internal IP 10.160.0.2)
+- **Subnet** = VPC ka region-wise tukda
+- **Firewall rules** = kaun andar aa sakta hai (humne sirf :80 khola tha — yehi VPC firewall tha!)
+- **Internal vs External IP** = mohalle ke andar ka pata vs duniya wala pata.
+  Pods/services aapas me internal IP pe baat karte hain — free + fast + secure.
+
+### HTTPS/TLS — ab tak hamara sabse bada GAP 🔴
+Hamari VM/LB **http://** pe hai = data raste me PLAIN dikh sakta hai (API key
+bhi!). Production me hamesha **https://**. Kaise: (1) domain kharido (₹100-800/saal),
+(2) DNS me IP point karo, (3) **cert-manager + Let's Encrypt** (K8s me free
+auto-renew certificates) ya GCP **managed certificate** LB pe. Learning project
+me chhoda kyunki domain paid hai — par interview me gap khud batana = maturity.
+
+### Terraform / IaC — "infrastructure ki recipe file"
+Humne sab `gcloud` commands se banaya — **clicks/commands gayab, yaad kisko?**
+IaC = infra ko CODE me likho:
+```hcl
+resource "google_storage_bucket" "reports" {
+  name     = "agentic-reports-81536"
+  location = "ASIA-SOUTH1"
+}
+```
+`terraform apply` = sab ban gaya. `terraform destroy` = sab saaf. Git me history.
+Naya environment (staging) = same file dobara chalao. Kubernetes YAML bhi isi
+philosophy ka hissa hai — **declarative**: "kya chahiye" likho, "kaise" tool dekhe.
+
+### Caching & Redis — "baar-baar mat banao"
+Same topic pe 50 log research maangein to 50 baar LLM chalana bewakoofi (paisa
++ time). **Cache**: pehli baar ka jawab **Redis** (in-memory, microseconds) me
+rakho `key=topic_hash`, **TTL** (expiry, jaise 24h) ke saath. Agli baar seedha
+cache se. GCP me managed Redis = **Memorystore**. LLM apps me semantic cache
+bhi hota hai (milte-julte sawal = same jawab).
+
+### Scaling: Horizontal vs Vertical
+- **Vertical** = machine BADI karo (e2-small → e2-medium) — limit hai, restart lagta hai
+- **Horizontal** = machines ZYADA karo (hamara HPA: 2→5 pods) — asli scale yahi
+- Horizontal ke liye service **stateless** honi chahiye (state bahar: GCS/BigQuery/
+  Redis me) — isi liye hamne reports GCS me rakhi, container me nahi! Ab samjhe
+  architecture aisi kyu banayi 😉
+
+### SQL vs NoSQL vs Warehouse — data kahan rakhein
+| Type | Example | Kab | Hamare project me |
+|---|---|---|---|
+| SQL (OLTP) | Postgres, **Cloud SQL** | Users, orders, transactions | (nahi laga — hota to user accounts) |
+| NoSQL | Firestore, MongoDB | Flexible/JSON data, chat history | (LangGraph checkpoints yahan ja sakte) |
+| Warehouse (OLAP) | **BigQuery** | Analytics on karodo rows | ✅ request analytics |
+| Object store | **GCS** | Files/blobs | ✅ reports, uploads |
+| Vector DB | **Chroma**, pgvector | Embeddings similarity | ✅ RAG |
+
+### Webhooks — "hum tumhe bulayenge, tum mat aao"
+Polling (baar-baar "ho gaya?" poochna) ki jagah ulta: kaam khatam → SERVER khud
+aapke diye URL pe POST kar de. Async research + webhook = "report ready hote hi
+mere Slack pe bhej do". GitHub Actions bhi webhooks pe hi chalta hai (push hua
+→ GitHub ne workflow ko bulaya).
+
+### Blue-Green & Canary deploys — bina dare release karna
+- **Rolling** (hamara K8s default): pods ek-ek karke naye hote hain
+- **Blue-Green**: poora naya environment (green) khada karo, traffic switch — issue? switch back
+- **Canary**: naya version pehle sirf 5% users ko → metrics theek → 100%
+LLM apps me canary + evals ka combo = prompt changes safely ship karna.
+
+---
+
+## 12. Ab aage kya? (current status)
 
 - [x] Phases 0-9: sab bana, sab VERIFIED (local + GCP writes)
-- [ ] **Docker Desktop app kholo** (Start menu me hai, install ho chuka) → whale 🐳 steady hone do
-- [ ] `docker compose up` full stack test → `http://localhost`
-- [ ] Phase 10: VM deploy (upar ke commands, ~2 din aaram se)
-- [ ] Phase 11: GKE (expensive week — banao, seekho, screenshot, DELETE)
-- [ ] Phase 12: CI/CD live karo (GitHub pe push + secrets set)
-- [ ] Phase 13: teardown + README me screenshots
+- [x] Docker + compose full stack → `http://localhost` ✅
+- [x] Phase 10: VM deploy — internet pe live chala, verify karke VM STOP ki ✅
+- [x] Phase 11: GKE — cluster, LB, self-healing demo, phir cluster DELETE ✅
+- [ ] Phase 12: CI/CD live karo (GitHub repo secrets: `GCP_SA_KEY` + `GCP_PROJECT_ID` set karke workflow chalana)
+- [ ] Phase 13: README me screenshots + final teardown (`gcloud projects delete agentic-research-81536` → bill ₹0 forever)
