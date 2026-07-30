@@ -1,15 +1,17 @@
-# MLOps pipeline: every push -> lint + tests. Manual trigger -> build images,
-# push to Artifact Registry, deploy to GKE.
-# Repo secrets needed for deploy: GCP_SA_KEY (service-account JSON), GCP_PROJECT_ID.
+# MLOps pipeline: every push -> lint + tests. Manual trigger ("Run workflow"
+# button) -> build images, push to Artifact Registry, deploy to GKE if the
+# cluster exists (we delete it when idle to save money).
+# Repo secrets needed: GCP_SA_KEY (github-deploy service-account JSON), GCP_PROJECT_ID.
 name: CI/CD
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:      # "Run workflow" button = deploy to GKE
+  workflow_dispatch:      # "Run workflow" button = build + (maybe) deploy
 
 env:
-  REGION: asia-south1
+  REGION: asia-south1          # Artifact Registry region
+  ZONE: asia-south1-a          # cluster zone
   CLUSTER: agentic-cluster
 
 jobs:
@@ -25,8 +27,8 @@ jobs:
         run: ruff check services
       - name: Unit tests (guardrails, middlewares, API)
         run: cd services/agent-service && pytest tests -q
-      # Quality gate idea (Phase 12): also run `python evals/run_evals.py` against
-      # a staging deployment and fail if average score < threshold.
+      # Quality-gate idea (see docs/07): run evals/run_evals.py against staging
+      # and fail the build if average judge score drops below a threshold.
 
   deploy:
     if: github.event_name == 'workflow_dispatch'
@@ -46,11 +48,25 @@ jobs:
             docker build -t $img:latest -t $img:${{ github.sha }} services/$svc
             docker push --all-tags $img
           done
-      - uses: google-github-actions/get-gke-credentials@v2
+      - name: Does the cluster exist right now?
+        id: cluster
+        run: |
+          if gcloud container clusters describe "$CLUSTER" --zone "$ZONE" \
+               --project "${{ secrets.GCP_PROJECT_ID }}" --format="value(name)" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cluster not found — images pushed, k8s deploy skipped (create the cluster and re-run to deploy)"
+          fi
+      - if: steps.cluster.outputs.exists == 'true'
+        uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.CLUSTER }}
-          location: ${{ env.REGION }}
+          location: ${{ env.ZONE }}
       - name: Deploy manifests + roll pods to new images
+        if: steps.cluster.outputs.exists == 'true'
+        # note: app-secrets must already exist in the cluster (kubectl apply -f
+        # deploy/k8s/secrets.yaml locally) — the real secrets file is never in git
         run: |
           kubectl apply -f deploy/k8s/namespace.yaml -f deploy/k8s/services.yaml \
                         -f deploy/k8s/gateway.yaml -f deploy/k8s/hpa.yaml
