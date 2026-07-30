@@ -10,7 +10,7 @@ curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER"
 
 # 2. Get the code (replace with YOUR repo URL after pushing to GitHub)
-git clone https://github.com/YOUR_USERNAME/agentic-research.git
+git clone https://github.com/Bansal7976/agentic-research.git
 cd agentic-research
 
 # 3. Configure secrets — paste real keys into .env
