@@ -71,6 +71,15 @@ def _text(content) -> str:
 
 
 def _llm(temperature: float = 0.3):
+    if settings.use_vertex_ai:
+        from langchain_google_vertexai import ChatVertexAI
+
+        return ChatVertexAI(
+            model=settings.gemini_model,
+            project=settings.gcp_project_id,
+            location=settings.gcp_location,
+            temperature=temperature,
+        )
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         google_api_key=settings.google_api_key,

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     chroma_dir: str = "chroma_db"
     gcs_bucket: str = ""
     gcp_project_id: str = ""
+    use_vertex_ai: bool = False
+    gcp_location: str = "global"
     chunk_size: int = 1000
     chunk_overlap: int = 150
 

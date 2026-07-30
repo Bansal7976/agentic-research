@@ -265,13 +265,15 @@ Har cloud me SAME cheezein hain, bas naam alag (jaise Ola/Uber):
 Matlab: **EC2 = AWS ka Compute Engine** — jo VM hum Phase 10 me banayenge, AWS
 wale usi ko EC2 kehte hain. Ek seekh liya = sab clouds ka concept aa gaya.
 
-**Vertex AI kya hai?** GCP ka **enterprise AI platform** — Gemini ko company-grade
-tareeke se use karna (IAM-based auth, private data, model training/tuning,
-vector search, ML pipelines sab ek jagah). Hum abhi **AI Studio API key** use kar
-rahe hain (simple + free tier — seekhne ke liye perfect). Vertex AI wahi Gemini
-hai par "office wala setup": key file nahi, service account se auth; billing
-account se pay-per-use. Job descriptions me "Vertex AI" dikhe to samjho: GCP pe
-AI apps banana — jo aap abhi seekh hi rahe ho.
+**Vertex AI kya hai?** GCP ka **enterprise AI platform** — wahi Gemini, par
+"office wala setup": API key ki jagah IAM/ADC se auth, billing account se
+pay-per-use, badi quotas, model tuning/vector search sab ek jagah.
+
+**Hum AB Vertex AI hi use kar rahe hain** (`.env` me `USE_VERTEX_AI=true`) —
+kyunki GCP credits hain aur AI Studio free tier ki quota chhoti thi (flash =
+20 req/day). Code me DONO supported hain — flag false karo to wapas free AI
+Studio key pe (graph.py ka `_llm()` dekho, bas ek if-else hai). Yehi pattern
+real companies use karti hain: dev me free tier, prod me Vertex.
 
 ---
 

@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     # lite = generous free-tier daily quota; plain gemini-flash-latest is only
     # ~20 requests/day free (one research run makes ~6-10 LLM calls)
     gemini_model: str = "gemini-flash-lite-latest"
+    # true = bill Gemini calls to the GCP project via Vertex AI (uses ADC/service
+    # account, no API key, enterprise quotas); false = AI Studio key (free tier)
+    use_vertex_ai: bool = False
+    gcp_location: str = "global"
     service_api_key: str = "dev-secret-key"
     mcp_server_url: str = "http://localhost:8100/mcp"
     rag_service_url: str = "http://localhost:8001"

@@ -25,11 +25,21 @@ def get_vectorstore():
     global _vectorstore
     if _vectorstore is None:
         from langchain_chroma import Chroma
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model=settings.embedding_model, google_api_key=settings.google_api_key
-        )
+        if settings.use_vertex_ai:
+            from langchain_google_vertexai import VertexAIEmbeddings
+
+            embeddings = VertexAIEmbeddings(
+                model_name=settings.embedding_model.removeprefix("models/"),
+                project=settings.gcp_project_id,
+                location=settings.gcp_location,
+            )
+        else:
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model=settings.embedding_model, google_api_key=settings.google_api_key
+            )
         _vectorstore = Chroma(
             collection_name="documents",
             embedding_function=embeddings,

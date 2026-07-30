@@ -3,6 +3,7 @@ uvicorn[standard]>=0.30
 pydantic-settings>=2.4
 python-multipart>=0.0.9
 langchain-google-genai>=2.0
+langchain-google-vertexai>=2.0
 langchain-chroma>=0.1.4
 langchain-text-splitters>=0.3
 chromadb>=0.5
