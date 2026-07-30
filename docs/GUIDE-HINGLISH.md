@@ -269,6 +269,25 @@ Test fail = deploy RUKEGA. Isi ko **quality gate** kehte hain — kharab code
 production tak pahunch hi nahi sakta. LLM apps me evals bhi gate hain: prompt
 badla aur report quality giri → marks gire → build fail. **Yehi MLOps hai.**
 
+### 🔴 LIVE JOURNEY — Phase 12 me humne kya kiya
+
+1. **Alag deploy robot banaya**: `github-deploy@...` — runtime robot (`agentic-app`)
+   se ALAG, sirf 2 roles: Artifact Registry Writer + Kubernetes Engine Developer.
+   KYU alag: GitHub ki key kabhi leak ho to attacker sirf deploy kar sakta hai,
+   data (GCS/BigQuery) nahi padh sakta. **Har kaam ka apna robot, minimum permissions.**
+2. **Is robot ki JSON key banayi** — haan, wahi "key file" jise hum avoid karte
+   aaye! KYU majboori: GitHub GCP ke BAHAR hai — metadata server nahi hai wahan,
+   to koi to credential dena padega. Ye single exception hai, tightly-scoped.
+   **Enterprise isse bhi hataata hai**: *Workload Identity Federation* (WIF) —
+   GitHub apna OIDC token dikhata hai, GCP usi pe bharosa kar leta hai, key file
+   zero. Interview me "SA key vs WIF" bol doge to senior lagoge.
+3. **Workflow smart banaya**: deploy job pehle images push karta hai, PHIR check
+   karta hai "cluster zinda hai?" — nahi hai to gracefully skip (hum cluster
+   delete kar chuke the — pipeline phir bhi green). Infra aaye-jaaye, pipeline
+   kabhi na toote.
+4. Push karte hi **pehla CI run** GitHub pe chala — lint + 6 tests, bina kisi
+   secret ke (test job ko GCP chahiye hi nahi).
+
 ---
 
 ## 5. Monitoring — "3 sawal, 3 tools"
