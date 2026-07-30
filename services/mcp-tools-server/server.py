@@ -13,8 +13,12 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-# local runs read the repo-root .env; in Docker/K8s env comes from compose/secrets
-load_dotenv(pathlib.Path(__file__).resolve().parents[2] / ".env")
+# local runs read the repo-root .env (walk upwards to find it);
+# in Docker/K8s there is no .env file — env comes from compose/secrets instead
+for _parent in pathlib.Path(__file__).resolve().parents:
+    if (_parent / ".env").exists():
+        load_dotenv(_parent / ".env")
+        break
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-tools")
