@@ -230,6 +230,7 @@ This is a learning project. You build it once, screenshot everything, then tear 
 
 ---
 
-*Current status: ✅ Phases 0–8 built & verified locally (full agent pipeline runs
-end-to-end: report generated, saved, traced). Docker/gcloud install pending →
-Next: Docker Desktop install, then Phase 9 (GCP: IAM, GCS, BigQuery).*
+*Current status: ✅ Phases 0–10 DONE & verified — full stack live on a Compute
+Engine VM (nginx → 3 microservices in Docker, Vertex AI via attached service
+account, reports → GCS, analytics → BigQuery). Next: Phase 11 (GKE) + 12 (CI/CD).
+⚠️ Remember: stop the VM when not in use.*
