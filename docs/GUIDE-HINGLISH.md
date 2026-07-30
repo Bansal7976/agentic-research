@@ -272,7 +272,49 @@ Browser → GCP LoadBalancer → nginx (rate-limit check, route)
 
 ---
 
-## 8. Doosre clouds ke naam — confusion mat khao
+## 8. IAM samjho — HAMARE project me kaun-kaun "log" hain
+
+IAM = **"kaun kya kar sakta hai"** ka system. 3 concepts:
+**Principal** (kaun — insaan ya robot) + **Role** (permissions ka bundle) +
+**Binding** (is principal ko ye role do). Bas.
+
+Hamare project me 3 identities + 4 keys hain — sab ka alag kaam:
+
+| # | Identity/Key | Kya hai | Kahan use hui |
+|---|---|---|---|
+| 1 | `ritikabansal...@gmail.com` | **Insaan (Owner)** — `gcloud auth login` se | Saari gcloud commands: project/VM/bucket banana |
+| 2 | **ADC file** (usi account ki) | `gcloud auth application-default login` se bani ek **credentials file** jo CODE use karta hai | Laptop pe Python/Docker se Vertex AI, GCS, BigQuery calls |
+| 3 | `agentic-app@...gserviceaccount.com` | **Robot (service account)** — sirf 3 roles: Storage Object Admin, BigQuery Data Editor, Vertex AI User | VM se saari GCP calls — **koi key file NAHI** |
+| 4 | `GOOGLE_API_KEY` (AIza...) | Gemini AI Studio key | Ab sirf fallback (USE_VERTEX_AI=false pe) |
+| 5 | `LANGSMITH_API_KEY` (lsv2...) | LangSmith SaaS ki key — **GCP se koi lena-dena nahi** | Tracing/evals |
+| 6 | `TAVILY_API_KEY` (tvly...) | Tavily search SaaS ki key | Web search tool |
+| 7 | `SERVICE_API_KEY` | **HAMARI khud ki API ka password** — GCP nahi, hamara middleware check karta hai | Client → `X-API-Key` header |
+
+**Sabse bada lesson — VM pe auth kaise hua (bina kisi key ke):**
+```
+VM banate waqt: --service-account=agentic-app@...
+→ VM ke andar ek "metadata server" hota hai (Google ka)
+→ Python library (storage.Client, ChatVertexAI) khud usse token maangti hai
+→ token me sirf wahi 3 permissions jo humne binding me di
+= koi password/key file kahin nahi — chori hone ko kuch hai hi nahi
+```
+Laptop pe metadata server nahi hota, isliye wahan ADC file (identity #2) lagti
+hai — Docker containers me humne wahi file mount ki (docker-compose.adc.yml).
+
+**Vertex AI setup — total 3 cheezein ki thi:**
+1. `gcloud services enable aiplatform.googleapis.com` (API ka switch ON)
+2. Auth pehle se thi (laptop = ADC, VM = service account) — **key banayi hi nahi**
+3. Code me `ChatVertexAI(model, project="agentic-research-81536", location="global")`
+   — billing project ke credits se, quota enterprise-level
+
+**Least privilege ka matlab hamare project me**: robot ko Owner/Editor NAHI diya.
+Kal ko service account leak bhi ho jaye to attacker sirf bucket/BigQuery/Vertex
+tak jaa sakta hai — project delete nahi kar sakta, VM nahi bana sakta, billing
+nahi chhed sakta.
+
+---
+
+## 9. Doosre clouds ke naam — confusion mat khao
 
 Har cloud me SAME cheezein hain, bas naam alag (jaise Ola/Uber):
 
@@ -300,7 +342,7 @@ real companies use karti hain: dev me free tier, prod me Vertex.
 
 ---
 
-## 9. Ab aage kya? (current status)
+## 10. Ab aage kya? (current status)
 
 - [x] Phases 0-9: sab bana, sab VERIFIED (local + GCP writes)
 - [ ] **Docker Desktop app kholo** (Start menu me hai, install ho chuka) → whale 🐳 steady hone do
