@@ -1,0 +1,25 @@
+# LOCAL-ONLY override: mounts your gcloud ADC credentials into the containers
+# so they can call Vertex AI / GCS / BigQuery from your laptop.
+# On the VM/GKE this file is NOT used — the attached service account does auth.
+# Usage:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.adc.yml up --build
+services:
+  mcp-tools:
+    volumes:
+      - ${APPDATA}/gcloud/application_default_credentials.json:/gcp/adc.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/adc.json
+
+  rag-service:
+    volumes:
+      - ${APPDATA}/gcloud/application_default_credentials.json:/gcp/adc.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/adc.json
+
+  agent-service:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/adc.json
+      MCP_SERVER_URL: http://mcp-tools:8100/mcp
+      RAG_SERVICE_URL: http://rag-service:8001
+    volumes:
+      - ${APPDATA}/gcloud/application_default_credentials.json:/gcp/adc.json:ro

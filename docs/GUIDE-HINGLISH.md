@@ -116,6 +116,29 @@ docker compose -f deploy/docker-compose.yml up --build
 Magic: compose network me service ka NAAM hi uska address hai —
 `http://mcp-tools:8100` — koi IP yaad nahi rakhni.
 
+**Docker ke sab tech words — ek jagah:**
+
+| Word | Matlab (simple) |
+|---|---|
+| **Image** | Tiffin ki READY-MADE packing — recipe se bani, ab copy kar sakte ho. `docker build` se banti hai |
+| **Container** | Chalta hua tiffin — ek image se 100 containers chala sakte ho. `docker run` |
+| **Dockerfile** | Packing ki recipe (kaunsa Python, kaunsi libraries, kaise start karna) |
+| **Engine** | Docker ka dil — background me containers chalata hai ("Engine running" jo aapko dikha) |
+| **WSL2** | Windows ke andar asli Linux — Docker Engine isi me chalta hai (jo humne install kiya) |
+| **docker-compose** | Ek YAML file = poori team ek command me: `docker compose up` |
+| **Volume** | Container ki permanent almari — container mare to bhi data bacha rahe (hamara `rag-data` = Chroma vectors) |
+| **Port mapping** | `"80:80"` = laptop ka port 80 → container ka port 80 (isliye `http://localhost` chalta hai) |
+| **Registry** | Images ka godown — Docker Hub (public) ya Artifact Registry (hamara, GCP me) |
+| **Tag** | Image ka version label — `:latest`, `:abc123` (git commit) — rollback isi se hota hai |
+| **Layer** | Image ki parat — har Dockerfile line ek layer; unchanged layers CACHE hoti hain (isliye dobara build fast) |
+| **Docker Desktop** | GUI app jo aapne kholi — Engine + WSL manage karti hai, containers dikhaati hai |
+
+**Ek aur pro word — compose override**: hamari `docker-compose.adc.yml` ek
+override file hai — base compose me sirf common cheezein, override me
+laptop-specific (GCP credentials mount). VM pe override use hi nahi hoti —
+wahan service account khud auth karta hai. Real teams isi pattern se
+dev/staging/prod alag rakhti hain.
+
 ### Level 2: VM (Compute Engine) — "Kiraye ka computer"
 Google se ek Linux computer kiraye pe lo (₹1-2/hour), usme Docker daalo, wahi
 compose chalao — ab duniya aapke app ko `http://VM_IP/` pe dekh sakti hai.
