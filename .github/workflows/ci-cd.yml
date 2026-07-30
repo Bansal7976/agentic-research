@@ -1,0 +1,57 @@
+# MLOps pipeline: every push -> lint + tests. Manual trigger -> build images,
+# push to Artifact Registry, deploy to GKE.
+# Repo secrets needed for deploy: GCP_SA_KEY (service-account JSON), GCP_PROJECT_ID.
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # "Run workflow" button = deploy to GKE
+
+env:
+  REGION: asia-south1
+  CLUSTER: agentic-cluster
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install deps
+        run: pip install -r services/agent-service/requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: ruff check services
+      - name: Unit tests (guardrails, middlewares, API)
+        run: cd services/agent-service && pytest tests -q
+      # Quality gate idea (Phase 12): also run `python evals/run_evals.py` against
+      # a staging deployment and fail if average score < threshold.
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with: { credentials_json: "${{ secrets.GCP_SA_KEY }}" }
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure docker for Artifact Registry
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+      - name: Build & push images
+        run: |
+          for svc in agent-service rag-service mcp-tools-server; do
+            img=$REGION-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agentic/${svc%-server}
+            docker build -t $img:latest -t $img:${{ github.sha }} services/$svc
+            docker push --all-tags $img
+          done
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.REGION }}
+      - name: Deploy manifests + roll pods to new images
+        run: |
+          kubectl apply -f deploy/k8s/namespace.yaml -f deploy/k8s/services.yaml \
+                        -f deploy/k8s/gateway.yaml -f deploy/k8s/hpa.yaml
+          kubectl -n agentic-research rollout restart deploy/agent-service deploy/rag-service deploy/mcp-tools

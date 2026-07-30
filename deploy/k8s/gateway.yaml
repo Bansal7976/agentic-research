@@ -1,0 +1,61 @@
+# nginx gateway: same config idea as local, upstreams resolve to k8s Services.
+# Service type LoadBalancer -> GCP creates a real external load balancer + IP.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: agentic-research
+data:
+  nginx.conf: |
+    worker_processes auto;
+    events { worker_connections 1024; }
+    http {
+      limit_req_zone $binary_remote_addr zone=api:10m rate=30r/m;
+      server {
+        listen 80;
+        location = / { return 200 'Agentic Research Assistant is running on GKE\n'; add_header Content-Type text/plain; }
+        location /api/agent/ {
+          limit_req zone=api burst=10 nodelay;
+          proxy_pass http://agent-service.agentic-research.svc.cluster.local:8000/;
+          proxy_read_timeout 300s;
+        }
+        location /api/rag/ {
+          client_max_body_size 20m;
+          proxy_pass http://rag-service.agentic-research.svc.cluster.local:8001/;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: agentic-research
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: gateway } }
+  template:
+    metadata: { labels: { app: gateway } }
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{ containerPort: 80 }]
+          volumeMounts:
+            - { name: conf, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+      volumes:
+        - name: conf
+          configMap: { name: nginx-conf }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: agentic-research
+spec:
+  type: LoadBalancer          # GCP provisions an external IP here
+  selector: { app: gateway }
+  ports: [{ port: 80, targetPort: 80 }]
