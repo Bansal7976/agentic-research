@@ -9,8 +9,12 @@ import pathlib
 import re
 import time
 
+from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+
+# local runs read the repo-root .env; in Docker/K8s env comes from compose/secrets
+load_dotenv(pathlib.Path(__file__).resolve().parents[2] / ".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-tools")
@@ -89,7 +93,8 @@ def save_report(topic: str, content: str) -> str:
     if bucket_name:
         from google.cloud import storage
 
-        blob = storage.Client().bucket(bucket_name).blob(f"reports/{fname}")
+        client = storage.Client(project=os.getenv("GCP_PROJECT_ID") or None)
+        blob = client.bucket(bucket_name).blob(f"reports/{fname}")
         blob.upload_from_string(content, content_type="text/markdown")
         return f"gs://{bucket_name}/reports/{fname}"
     # local fallback when GCP is not configured yet

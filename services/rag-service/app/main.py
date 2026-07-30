@@ -52,7 +52,8 @@ def archive_to_gcs(filename: str, data: bytes) -> str | None:
         return None
     from google.cloud import storage
 
-    blob = storage.Client().bucket(settings.gcs_bucket).blob(f"uploads/{filename}")
+    client = storage.Client(project=settings.gcp_project_id or None)
+    blob = client.bucket(settings.gcs_bucket).blob(f"uploads/{filename}")
     blob.upload_from_string(data)
     return f"gs://{settings.gcs_bucket}/uploads/{filename}"
 

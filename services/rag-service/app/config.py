@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     embedding_model: str = "models/gemini-embedding-001"
     chroma_dir: str = "chroma_db"
     gcs_bucket: str = ""
+    gcp_project_id: str = ""
     chunk_size: int = 1000
     chunk_overlap: int = 150
 
