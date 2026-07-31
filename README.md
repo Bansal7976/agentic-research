@@ -5,9 +5,10 @@ team of AI agents plans, researches (web/Wikipedia/arXiv via **MCP** + your own
 documents via **RAG**), and writes a cited report — with **guardrails**,
 **LangSmith tracing/evals**, **BigQuery analytics**, deployed as
 **4 microservices** behind **nginx** on **GCP (VM → Kubernetes)** with a full
-**CI/CD** pipeline.
+**CI/CD** pipeline. Auth throughout is **IAM-based, not API keys** — Vertex AI,
+Cloud Storage and BigQuery are all reached via service-account identity.
 
-> 📚 **Start here to understand everything:** [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md)
+> 📚 **Start here to understand everything:** [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md) (reference) · [docs/GUIDE-HINGLISH.md](docs/GUIDE-HINGLISH.md) (learning guide, Hinglish)
 > 🗺️ **Build plan & phases:** [ROADMAP.md](ROADMAP.md)
 
 ## Architecture
@@ -19,13 +20,43 @@ flowchart TB
     NG --> RS[rag-service :8001\nembeddings · Chroma]
     AS -->|MCP| MT[mcp-tools-server :8100\nweb · wiki · arxiv · save]
     AS --> RS
-    AS --> GEM[Gemini API]
+    AS -->|IAM auth, no API key| VX[Vertex AI\ngemini-3.6-flash]
     AS -.traces.-> LS[LangSmith]
     MT --> GCS[(Cloud Storage)]
     AS -.analytics.-> BQ[(BigQuery)]
 ```
 
 Agent flow: `guard_input → planner → researcher (tool loop) → summarizer → writer → guard_output → save`
+
+## Deployment journey — verified at every stage
+
+```mermaid
+flowchart LR
+    subgraph S1["Local · Phase 0-8"]
+        A["FastAPI + LangGraph +\nMCP + RAG + Guardrails"] --> B["Docker Compose\n4 containers"]
+    end
+    subgraph S2["GCP foundation · Phase 9"]
+        C["IAM + service accounts"] --> D["GCS + BigQuery +\nVertex AI"]
+    end
+    subgraph S3["Deploy, one at a time · Phase 10-11"]
+        E["Compute Engine VM\nlive → stopped"] --> F["GKE cluster\nself-healing shown → deleted"]
+    end
+    subgraph S4["Automate · Phase 12"]
+        G["Separate deploy SA +\nGitHub Secrets"] --> H["CI/CD pipeline\ngreen"]
+    end
+    S1 --> S2 --> S3 --> S4
+```
+
+Each stage was actually run against live GCP resources, not just written —
+see [ROADMAP.md](ROADMAP.md) for phase-by-phase status and
+[docs/GUIDE-HINGLISH.md](docs/GUIDE-HINGLISH.md) for the *why* behind every step,
+including the real problems hit along the way (e.g. GKE pods stuck `Pending` on
+`Insufficient cpu`, fixed by right-sizing resource requests).
+
+**Live evidence:**
+- ✅ Compute Engine VM (`agentic-vm`, e2-medium) served real research requests over the public internet, then was stopped
+- ✅ GKE cluster (`agentic-cluster`, 2×e2-medium) served requests through a GCP LoadBalancer; a pod was deleted and Kubernetes recreated it in ~30s (self-healing), then the cluster was deleted
+- ✅ CI/CD pipeline ran green end-to-end: [Actions run #8](https://github.com/Bansal7976/agentic-research/actions/runs/30618051393) — lint, tests, and all 3 images built + pushed to Artifact Registry via a scoped deploy service account (zero long-lived keys on the runtime side)
 
 ## Quickstart (local, no Docker)
 
@@ -79,5 +110,16 @@ python evals/run_evals.py                        # LLM-as-judge quality scores
 3. **GKE Kubernetes** — replicas, load balancer, autoscaling, self-healing
 4. **CI/CD** — GitHub Actions → Artifact Registry → GKE, with eval quality gates
 
-⚠️ Learning project: create GCP resources, screenshot, then tear down
-([ROADMAP.md §6](ROADMAP.md) cost control).
+## Current live state
+
+| Resource | Status |
+|---|---|
+| Compute Engine VM | 🔴 stopped (was live-tested, then stopped to save cost) |
+| GKE cluster | 🔴 deleted (was live-tested incl. self-healing, then deleted) |
+| Artifact Registry images | 🟢 present — `agent-service`, `rag-service`, `mcp-tools`, latest via CI |
+| Cloud Storage / BigQuery | 🟢 live, near-zero cost at this data volume |
+| CI/CD pipeline | 🟢 green — re-run "Run workflow" any time; auto-deploys if a cluster exists |
+
+⚠️ Learning project: this repo is built to be **stood up, verified, and torn
+down on demand** rather than left running — see [ROADMAP.md §6](ROADMAP.md)
+for cost control and the teardown checklist.

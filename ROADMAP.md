@@ -201,9 +201,13 @@ in beginner-friendly language. Don't skip phases — each builds on the previous
 - **Learn:** the full MLOps loop — code change to production automatically, with quality gates
 
 ### 🔵 Phase 13 — Documentation + teardown (1–2 days)
-- Finish `docs/TECHNOLOGIES.md` (master explainer), polish README with architecture diagrams and screenshots of GCP console/K8s/LangSmith
-- **Teardown guide:** delete cluster, VM, images; keep only GCS + BigQuery (free tier) — bill → ₹0
-- **Result:** a portfolio project anyone can read and fully understand
+- Finish `docs/TECHNOLOGIES.md` (master explainer), polish README with architecture + deployment-journey diagrams and links to live evidence (CI run, etc.) ✅ done
+- **Partial teardown checklist (done):** cluster deleted ✅, VM stopped 🟡 (still has a 10GB boot disk — small ongoing cost until the VM is fully deleted)
+- **Final teardown (when you're fully done learning — ask before running):**
+  1. `gcloud compute instances delete agentic-vm --zone=asia-south1-a` — removes the VM *and* its disk (recreate anytime via `deploy/vm/setup.sh`)
+  2. `gcloud iam service-accounts keys delete <key-id> --iam-account=github-deploy@...` — revoke the one long-lived key once you stop needing CI/CD deploys
+  3. `gcloud projects delete agentic-research-81536` — deletes EVERYTHING (bucket, BigQuery, images, service accounts); GCP keeps it recoverable for ~30 days, then it's gone for good
+- **Result:** a portfolio project anyone can read and fully understand, GitHub repo stays forever, GCP bill → ₹0
 
 ---
 
