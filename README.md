@@ -54,9 +54,18 @@ including the real problems hit along the way (e.g. GKE pods stuck `Pending` on
 `Insufficient cpu`, fixed by right-sizing resource requests).
 
 **Live evidence:**
-- ✅ Compute Engine VM (`agentic-vm`, e2-medium) served real research requests over the public internet, then was stopped
-- ✅ GKE cluster (`agentic-cluster`, 2×e2-medium) served requests through a GCP LoadBalancer; a pod was deleted and Kubernetes recreated it in ~30s (self-healing), then the cluster was deleted
+- ✅ Compute Engine VM (`agentic-vm`, e2-medium, `34.93.125.121`) served a real research request over the public internet — 10 sources found, report written to `gs://agentic-reports-81536/reports/how-does-the-kumbh-mela-logistics-work-...md` (8.7KB, verified in Cloud Storage) — then the VM was deleted
+- ✅ GKE cluster (`agentic-cluster`, 2×e2-medium) served requests through a GCP LoadBalancer (`34.93.164.209`); the `agent-service` pod was deleted mid-run and Kubernetes had a replacement `ContainerCreating` within 3 seconds, `Running` within a minute — then the cluster was deleted
 - ✅ CI/CD pipeline ran green end-to-end: [Actions run #8](https://github.com/Bansal7976/agentic-research/actions/runs/30618051393) — lint, tests, and all 3 images built + pushed to Artifact Registry via a scoped deploy service account (zero long-lived keys on the runtime side)
+
+### Screenshots — captured live, same session
+
+| | |
+|---|---|
+| **App running on GKE**, served through the GCP LoadBalancer | ![GKE frontend](docs/screenshots/gke-frontend.png) |
+| **Self-healing, moment 1** — pod deleted, replacement already `ContainerCreating` 3s later | ![Pod deleted and recreating](docs/screenshots/gke-selfheal-delete.png) |
+| **Self-healing, moment 2** — all 4 services back to `Running`, LoadBalancer unaffected throughout | ![All pods stable, LoadBalancer up](docs/screenshots/gke-selfheal-stable.png) |
+| **CI/CD pipeline**, publicly viewable — test + build + push, green | ![CI/CD run success](docs/screenshots/cicd-success.png) |
 
 ## Quickstart (local, no Docker)
 
@@ -114,8 +123,8 @@ python evals/run_evals.py                        # LLM-as-judge quality scores
 
 | Resource | Status |
 |---|---|
-| Compute Engine VM | 🔴 stopped (was live-tested, then stopped to save cost) |
-| GKE cluster | 🔴 deleted (was live-tested incl. self-healing, then deleted) |
+| Compute Engine VM | 🔴 deleted (instance + disk — re-verified live, screenshotted, then fully torn down) |
+| GKE cluster | 🔴 deleted (re-verified live incl. self-healing, screenshotted, then fully torn down) |
 | Artifact Registry images | 🟢 present — `agent-service`, `rag-service`, `mcp-tools`, latest via CI |
 | Cloud Storage / BigQuery | 🟢 live, near-zero cost at this data volume |
 | CI/CD pipeline | 🟢 green — re-run "Run workflow" any time; auto-deploys if a cluster exists |
