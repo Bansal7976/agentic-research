@@ -1,5 +1,7 @@
 # FastAPI & Middlewares
 
+> New to terms like API, endpoint, or middleware? [docs/00](00-google-cloud-basics.md#jargon-buster-every-short-word-explained) has a glossary.
+
 ## What is FastAPI?
 FastAPI is a Python framework for building web APIs. You write a normal Python
 function, decorate it with a route (`@app.post("/research")`), and FastAPI turns

@@ -2,6 +2,9 @@
 
 > Ye guide AAPKE liye hai — har technology simple bhasha me, analogies ke saath.
 > Portfolio ke liye English docs [TECHNOLOGIES.md](TECHNOLOGIES.md) me hain.
+> Koi English tech word (API, container, service account...) samajh nahi aaya?
+> [docs/00 — Google Cloud Basics](00-google-cloud-basics.md#jargon-buster-every-short-word-explained)
+> me poori glossary hai.
 
 ---
 

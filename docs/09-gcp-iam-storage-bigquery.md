@@ -1,5 +1,8 @@
 # GCP Foundations — IAM, Cloud Storage, BigQuery
 
+> First time with GCP? [docs/00 — Google Cloud Basics](00-google-cloud-basics.md)
+> covers projects, regions, billing, and the two `gcloud auth` logins before you hit this doc.
+
 ## Projects & the gcloud CLI
 Everything in GCP lives inside a **project** (billing, permissions, resources).
 ```bash

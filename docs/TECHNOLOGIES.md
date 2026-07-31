@@ -4,8 +4,14 @@ New to this repo? Read this file, then dive into the numbered docs for depth.
 Each doc explains: what the technology is, why THIS project needs it, exactly
 where it lives in the code, and what would break without it.
 
+> 🆕 **Never used a cloud before, or unsure what "project," "region," or
+> "API key" even mean?** Start with [00 — Google Cloud Basics](00-google-cloud-basics.md)
+> first — it also has a jargon-buster glossary for every short technical word
+> used across these docs (API, container, middleware, load balancer, etc.).
+
 | # | Doc | Technology | One-line role here |
 |---|---|---|---|
+| 00 | [Google Cloud Basics](00-google-cloud-basics.md) | Cloud concepts, GCP fundamentals | Read this first if any of the below is unfamiliar |
 | 01 | [FastAPI & Middlewares](01-fastapi-and-middlewares.md) | FastAPI, Pydantic, middlewares | The API layer; auth, rate-limit, request-IDs, analytics on every request |
 | 02 | [LangChain & Gemini](02-langchain-gemini.md) | LangChain, Gemini API | Talking to the LLM: prompts, structured output, tools |
 | 03 | [RAG](03-rag.md) | Embeddings, Chroma | Your documents → searchable knowledge the agent can cite |

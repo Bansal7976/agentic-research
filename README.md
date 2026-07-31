@@ -8,7 +8,7 @@ documents via **RAG**), and writes a cited report — with **guardrails**,
 **CI/CD** pipeline. Auth throughout is **IAM-based, not API keys** — Vertex AI,
 Cloud Storage and BigQuery are all reached via service-account identity.
 
-> 📚 **Start here to understand everything:** [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md) (reference) · [docs/GUIDE-HINGLISH.md](docs/GUIDE-HINGLISH.md) (learning guide, Hinglish)
+> 📚 **Start here to understand everything:** [docs/00-google-cloud-basics.md](docs/00-google-cloud-basics.md) (never used a cloud before? start here — includes a jargon glossary) → [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md) (reference) · [docs/GUIDE-HINGLISH.md](docs/GUIDE-HINGLISH.md) (learning guide, Hinglish)
 > 🗺️ **Build plan & phases:** [ROADMAP.md](ROADMAP.md)
 
 ## Architecture
